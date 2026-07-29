@@ -543,6 +543,13 @@ def edit_profile_api(request):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def request_profile_edit_otp(request):
+    try:
+        HunterProfile.objects.get(user=request.user)
+    except HunterProfile.DoesNotExist:
+        return Response(
+            {"error": "You do not have a Hunter profile set up."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
     otp = random.randint(10000, 999999)
     cache.set(f'otp_{request.user.id}', str(otp), timeout=300)
     send_mail(
