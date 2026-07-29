@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guild Bounty Board</title>
+    <style>
+        body {
+            background-color: #1a1a24;
+            color: #e0e0e0;
+            font-family: sans-serif;
+            padding: 20px;
+        }
+
+        h1 {
+            color: #d4af37;
+            text-align: center;
+            border-bottom: 2px solid #d4af37;
+            padding-bottom: 10px;
+        }
+
+        h2 {
+            color: #a98c2a;
+        }
+
+        .container {
+            display: flex;
+            gap: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .column {
+            flex: 1;
+            background: #262635;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #444;
+        }
+
+        /* NEW: Horizontal Filter Bar Styling */
+        .filter-bar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            align-items: center;
+            background: #1e1e2b;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            border: 1px solid #3d3d54;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .filter-group label {
+            font-size: 0.85em;
+            color: #a98c2a;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .filter-group select {
+            background: #2a2a3a;
+            color: #fff;
+            border: 1px solid #444;
+            padding: 6px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            outline: none;
+        }
+
+        .filter-group select:focus {
+            border-color: #d4af37;
+        }
+
+        .clear-btn {
+            color: #ff4c4c;
+            text-decoration: none;
+            font-size: 0.9em;
+            margin-top: auto;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        .clear-btn:hover {
+            text-decoration: underline;
+        }
+
+        /* Modified Card Component Styles */
+        .card {
+            background: #333344;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 4px;
+            transition: transform 0.2s ease;
+        }
+
+        /* Visual Anchors for Highlighted Items vs Rest */
+        .card.featured-match {
+            border-left: 5px solid #d4af37;
+            box-shadow: 0 0 10px rgba(212, 175, 55, 0.15);
+            background: #3a3a4e;
+        }
+
+        .card.standard-row {
+            border-left: 4px solid #555566;
+            opacity: 0.85;
+        }
+
+        .card h3 {
+            margin-top: 0;
+            color: #fff;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .badge {
+            background: #d4af37;
+            color: #1a1a24;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.75em;
+            font-weight: bold;
+        }
+
+        .badge.priority-tag {
+            background: #2a2a3a;
+            color: #d4af37;
+            border: 1px solid #d4af37;
+            margin-left: 5px;
+        }
+
+        .btn {
+            display: inline-block;
+            background-color: #d4af37;
+            color: #1a1a24;
+            padding: 8px 16px;
+            text-decoration: none;
+            font-weight: bold;
+            border-radius: 4px;
+            margin-top: 10px;
+            border: none;
+            cursor: pointer;
+        }
+
+        .btn:hover {
+            background-color: #f1c40f;
+        }
+    </style>
+</head>
+
+<body>
+    <style>
+        .messages { list-style: none; padding: 0; }
+        .messages li { padding: 10px; margin-bottom: 10px; border-radius: 4px; color: white; }
+        .messages li.error { background-color: #ff4c4c; }
+        .messages li.success { background-color: #2ecc71; }
+    </style>
+
+    {% if messages %}
+    <ul class="messages">
+        {% for message in messages %}
+        <li class="{{ message.tags }}">{{ message }}</li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+
+    <h1>⚔️ Guild Contract Board</h1>
+
+    <div class="container">
+
+        <!-- Active Contracts Column -->
+        <div class="column">
+            <h2>My Active Contracts</h2>
+
+            {% if my_active_assignments %}
+            {% for assignment in my_active_assignments %}
+            <div class="card featured-match">
+                <h3>{{ assignment.task.title }}</h3>
+                <p><strong>Deadline:</strong> {{ assignment.task.deadline|date:"M d, Y" }}</p>
+                <p><strong>Reward:</strong> {{ assignment.task.reward_amount }} Gold</p>
+                <a href="{% url 'submit_task_proof' assignment.id %}" class="btn">Submit Proof</a>
+            </div>
+            {% endfor %}
+            {% else %}
+            <p>You have no active contracts. Grab one from the board!</p>
+            {% endif %}
+        </div>
+
+        <!-- Available Bounties Column -->
+        <div class="column">
+            <h2>Available Bounties</h2>
+            
+            <!-- Upgraded Filter Form Layout Structure -->
+            <form method="GET" action="" id="filter-form" class="filter-bar">
+                <div class="filter-group">
+                    <label for="priority">Priority</label>
+                    <select name="priority" id="priority" onchange="this.form.submit()">
+                        <option value="">All Priorities</option>
+                        <option value="L" {% if selected_priority == "L" %}selected{% endif %}>Low</option>
+                        <option value="M" {% if selected_priority == "M" %}selected{% endif %}>Medium</option>
+                        <option value="H" {% if selected_priority == "H" %}selected{% endif %}>High</option>
+                        <option value="C" {% if selected_priority == "C" %}selected{% endif %}>CRITICAL</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="category">Category</label>
+                    <select name="category" id="category" onchange="this.form.submit()">
+                        <option value="">All Categories</option>
+                        <option value="GENERAL" {% if selected_category == "GENERAL" %}selected{% endif %}>General</option>
+                        <option value="INVESTIGATION" {% if selected_category == "INVESTIGATION" %}selected{% endif %}>Investigation</option>
+                        <option value="ELIMINATION" {% if selected_category == "ELIMINATION" %}selected{% endif %}>Elimination</option>
+                        <option value="RESCUE" {% if selected_category == "RESCUE" %}selected{% endif %}>Rescue</option>
+                        <option value="PATROL" {% if selected_category == "PATROL" %}selected{% endif %}>Patrol</option>
+                        <option value="DELIVERY" {% if selected_category == "DELIVERY" %}selected{% endif %}>Delivery</option>
+                        <option value="SPECIAL" {% if selected_category == "SPECIAL" %}selected{% endif %}>Special</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="sort">Sorting</label>
+                    <select name="sort" id="sort" onchange="this.form.submit()">
+                        <option value="">Default</option>
+                        <option value="reward_asc" {% if selected_sort == "reward_asc" %}selected{% endif %}>Reward: Low to High</option>
+                        <option value="reward_desc" {% if selected_sort == "reward_desc" %}selected{% endif %}>Reward: High to Low</option>
+                    </select>
+                </div>
+
+                <a href="?" class="clear-btn">Reset Board</a>
+            </form>
+
+            <!-- Render Bounty Listing -->
+            {% if open_bounties %}
+                {% for bounty in open_bounties %}
+                {% if bounty.status == 'O' %}
+                
+                <!-- If a priority is selected and matches this card, highlight it golden -->
+                <div class="card {% if selected_priority and bounty.priority == selected_priority %}featured-match{% else %}standard-row{% endif %}">
+                    <h3>
+                        {{ bounty.title }} 
+                        <div>
+                            <span class="badge priority-tag">{{ bounty.get_priority_display }}</span>
+                            <span class="badge">{{ bounty.get_category_display }}</span>
+                        </div>
+                    </h3>
+                    <p><strong>Req. Level:</strong> {{ bounty.required_level }}</p>
+                    <p><strong>Reward:</strong> {{ bounty.reward_amount }} Gold</p>
+                    <p>{{ bounty.description|truncatewords:15 }}</p>
+
+                    <form action="{% url 'accept_task' bounty.id %}" method="POST" style="display:inline;">
+                        {% csrf_token %}
+                        <button type="submit" class="btn">Accept Bounty</button>
+                    </form>
+                </div>
+                
+                {% endif %}
+                {% endfor %}
+            {% else %}
+                <p>The board is currently empty. Check back later!</p>
+            {% endif %}
+        </div>
+
+    </div>
+
+</body>
+
+</html>

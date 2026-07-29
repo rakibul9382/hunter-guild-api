@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Submit Bounty Proof</title>
+  <style>
+      body { background-color: #1a1a24; color: #e0e0e0; font-family: sans-serif; padding: 40px; }
+      .bounty-card { background: #262635; padding: 30px; border: 2px solid #d4af37; border-radius: 8px; max-width: 500px; margin: 0 auto; }
+      h2 { color: #d4af37; margin-top: 0;}
+      .btn { background-color: #d4af37; color: #1a1a24; padding: 10px 20px; border: none; font-weight: bold; cursor: pointer; border-radius: 4px; margin-top: 15px;}
+  </style>
+</head>
+<body>
+
+<div class="bounty-card">
+    <h2>Turn in Bounty: {{ assignment.task.title }}</h2>
+    <p><strong>Required Level:</strong> {{ assignment.task.required_level }}</p>
+    <p><strong>Reward:</strong> {{ assignment.task.reward_amount }} Gold</p>
+    <hr style="border-color: #444;">
+    
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        
+        <p>Please provide evidence of completion (monster parts, signed logs, etc.):</p>
+        {{ form.as_p }}
+        
+        <button type="submit" class="btn">Submit to Guild Master</button>
+    </form>
+</div>
+
+</body>
+</html>

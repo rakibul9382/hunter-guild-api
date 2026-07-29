@@ -1,0 +1,43 @@
+{% extends "guild/base.html" %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-5">
+            <div class="card shadow-lg border-0">
+                <div class="card-header bg-dark text-white text-center">
+                    <h4 class="mb-0">Join the Guild</h4>
+                </div>
+                <div class="card-body p-4">
+                    <p class="text-muted text-center">Create your account to start accepting tasks.</p>
+                    
+                    <form method="post" enctype="multipart/form-data" novalidate>
+                        {% csrf_token %}
+                        
+                        {# Standard Django form rendering #}
+                        {% for field in form %}
+                            <div class="mb-3">
+                                <label class="form-label">{{ field.label }}</label>
+                                {{ field }}
+                                {% if field.help_text %}
+                                    <div class="form-text text-muted" style="font-size: 0.8rem;">
+                                        {{ field.help_text }}
+                                    </div>
+                                {% endif %}
+                                {% for error in field.errors %}
+                                    <div class="text-danger small">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                        {% endfor %}
+
+                        <button type="submit" class="btn btn-success w-100 mt-3">Register as Hunter</button>
+                    </form>
+                </div>
+                <div class="card-footer text-center bg-light">
+                    <small>Already a member? <a href="{% url 'login' %}" class="text-decoration-none">Login here</a></small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,51 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Review Bounty Proof</title>
+    <style>
+        body { background-color: #1a1a24; color: #e0e0e0; font-family: sans-serif; padding: 40px; }
+        .review-card { background: #262635; padding: 30px; border: 2px solid #d4af37; border-radius: 8px; max-width: 600px; margin: 0 auto; }
+        h2 { color: #d4af37; margin-top: 0; }
+        .proof-box { background: #111; padding: 10px; border: 1px solid #444; margin: 20px 0; text-align: center; }
+        .proof-box img { max-width: 100%; height: auto; border-radius: 4px; }
+        textarea { width: 100%; padding: 10px; background: #1a1a24; color: #fff; border: 1px solid #444; border-radius: 4px; box-sizing: border-box; }
+        .btn-approve { background-color: #2ecc71; color: white; padding: 10px 20px; border: none; font-weight: bold; cursor: pointer; border-radius: 4px; }
+        .btn-reject { background-color: #e74c3c; color: white; padding: 10px 20px; border: none; font-weight: bold; cursor: pointer; border-radius: 4px; }
+        .btn-approve:hover { background-color: #27ae60; }
+        .btn-reject:hover { background-color: #c0392b; }
+        .action-buttons { display: flex; gap: 15px; margin-top: 20px; }
+    </style>
+</head>
+<body>
+
+<div class="review-card">
+    <h2>Review: {{ assignment.task.title }}</h2>
+    <p><strong>Hunter:</strong> {{ assignment.hunter.user.username }}</p>
+    <p><strong>Submitted on:</strong> {{ assignment.submitted_at|date:"M d, Y h:i A" }}</p>
+    <hr style="border-color: #444;">
+    
+    <h3>Hunter's Proof:</h3>
+    <div class="proof-box">
+        {% if assignment.completion_proof %}
+            <img src="{{ assignment.completion_proof.url }}" alt="Completion Proof">
+        {% else %}
+            <p style="color: #e74c3c;">No visual proof was provided by the hunter.</p>
+        {% endif %}
+    </div>
+
+    <form method="POST">
+        {% csrf_token %}
+        
+        <p><label for="admin_notes"><strong>Guild Master's Notes (Optional):</strong></label></p>
+        <textarea name="admin_notes" id="admin_notes" rows="4" placeholder="Why are you approving/rejecting this?"></textarea>
+        
+        <div class="action-buttons">
+            <button type="submit" name="decision" value="P" class="btn-approve">✅ Approve & Pay Reward</button>
+            <button type="submit" name="decision" value="X" class="btn-reject">❌ Reject Proof</button>
+        </div>
+    </form>
+</div>
+
+</body>
+</html>

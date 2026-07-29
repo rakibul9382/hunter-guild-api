@@ -1,0 +1,56 @@
+{% extends "guild/base.html" %}
+
+{% block title %}Guild Master's Desk{% endblock %}
+
+{% block content %}
+    <!-- Keep your awesome dark-theme styles, but we remove the 'body' style 
+         so it doesn't fight with your base.html Bootstrap styles! -->
+    <style>
+        .dashboard-title { color: #d4af37; border-bottom: 2px solid #d4af37; padding-bottom: 10px; }
+        .table-container { background: #262635; padding: 20px; border-radius: 8px; border: 1px solid #444; color: #e0e0e0; }
+        .table-container table { width: 100%; border-collapse: collapse; margin-top: 15px; color: #e0e0e0; }
+        .table-container th, .table-container td { padding: 12px; text-align: left; border-bottom: 1px solid #444; }
+        .table-container th { color: #d4af37; }
+        .btn-gold { display: inline-block; background-color: #d4af37; color: #1a1a24; padding: 6px 12px; text-decoration: none; font-weight: bold; border-radius: 4px; }
+        .btn-gold:hover { background-color: #f1c40f; color: #1a1a24; }
+    </style>
+
+    <h1 class="dashboard-title mt-4">👑 Guild Master's Desk</h1>
+    
+    <div class="table-container mt-4 mb-5">
+        <h2>Pending Bounty Reviews</h2>
+        <p>These hunters have submitted proof and are awaiting your judgment.</p>
+        
+        {% if pending_reviews %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Hunter Name</th>
+                        <th>Task Title</th>
+                        <th>Submitted At</th>
+                        <th>Action</th>
+                        <th>Proof</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for review in pending_reviews %}
+                        <tr>
+                            <td>{{ review.hunter.user.username }}</td>
+                            <td>{{ review.task.title }}</td>
+                            <td>{{ review.submitted_at|date:"M d, Y" }}</td>
+                            <td><a href="{% url 'task_review' review.id %}" class="btn-gold">Review Proof</a></td>
+                            <td>
+                                <!-- Pro-tip: Added target="_blank" so the image opens in a new tab if they click it! -->
+                                <a href="{{ review.completion_proof.url }}" target="_blank"> 
+                                    <img src="{{ review.completion_proof.url }}" alt="Hunter Proof" style="max-width: 100px; height: auto; border-radius: 4px;">
+                                </a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p style="color: #2ecc71; font-weight: bold;">All clear! No pending reviews at this time.</p>
+        {% endif %}
+    </div>
+{% endblock %}
