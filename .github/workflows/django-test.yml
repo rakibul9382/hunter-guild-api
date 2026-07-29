@@ -1,0 +1,62 @@
+name: Django CI
+
+# Trigger this workflow on every push to the main branch
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  test:
+    name: Run Django Tests
+    runs-on: ubuntu-latest
+
+    # Set up PostgreSQL as a service container for the tests
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: admin
+          POSTGRES_PASSWORD: supersecretpassword
+          POSTGRES_DB: guild_db
+        ports:
+          - 5432:5432
+        # A health check to make sure the database is ready before tests start
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      # Step 1: Check out the code from the repository
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Step 2: Set up the Python environment
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Step 3: Install the required packages
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # Step 4: Run the test suite
+      - name: Run Tests
+        env:
+          # Provide the test environment with the exact same variables
+          # that the postgres service is expecting
+          POSTGRES_USER: admin
+          POSTGRES_PASSWORD: supersecretpassword
+          POSTGRES_DB: guild_db
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
+          # We don't need a real secret key for testing, just a dummy one
+          SECRET_KEY: dummy-key-for-github-actions
+        run: |
+          python manage.py test
