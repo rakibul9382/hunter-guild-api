@@ -171,7 +171,7 @@ class ContractHistorySerializer(serializers.ModelSerializer):
 class EditProfileSerializer(serializers.ModelSerializer):
     #access from user model
     phone_number = PhoneNumberField(source='user.phone_number', required=False)
-    profile_image = serializers.ImageField(source='user.profile_pic', required=False)
+    profile_image = serializers.ImageField(source='user.profile_image', required=False)
     email = serializers.EmailField(source='user.email', required=False)
     otp = serializers.CharField(write_only=True, required=False)
 
@@ -182,7 +182,7 @@ class EditProfileSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         user_data = attrs.get('user', {})
 
-        sensitive_data = 'phone_number' in user_data or 'email' in 'user_data'
+        sensitive_data = ('phone_number' in user_data or 'email' in user_data)
         if sensitive_data:
             otp_provided = attrs.get('otp')
             if not otp_provided:
