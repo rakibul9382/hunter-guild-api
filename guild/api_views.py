@@ -11,6 +11,7 @@ from django.utils import timezone
 from django.db import IntegrityError, DatabaseError
 import logging
 from django.db import transaction
+from drf_spectacular.utils import extend_schema
 from .serializers import (
     TaskSerializer,
     TaskAssignmentSerializer,
@@ -95,6 +96,10 @@ def task_list(request):
     })
 
 
+@extend_schema(
+    request=HunterSignupSerializer,
+    responses={201: HunterSignupSerializer},
+)
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def api_signup(request):
@@ -113,10 +118,13 @@ def api_signup(request):
                 fail_silently=False
             )
         except Exception:
-            return Response({
-                'error': 'Account created, but the email failed to send. Please click Resend OTP.',
-                'user_id': user.id
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(
+                {
+                    "message": "Account created.",
+                    "warning": "Verification email could not be sent. Please click Resend OTP.",
+                    "user_id": user.id,
+                }, status=status.HTTP_201_CREATED,
+            )  
 
         return Response({
             'message': 'Signup successful. Please verify OTP.',
@@ -200,26 +208,42 @@ def api_resend_otp(request):
 @api_view(["POST"])
 @permission_classes([AllowAny])
 def login_view(request):
-    username = request.data.get('username')
-    password = request.data.get('password')
-    user = authenticate(username=username, password=password)
-    if user is not None:
-        if user.is_active:
-            token, created = Token.objects.get_or_create(user=user)
-            return Response({
-                'message': 'Login Successful',
-                'token': token.key,
-                'user_id': user.id
-            }, status=status.HTTP_200_OK)
-        else:
-            return Response({
-                'error': 'Account is not verified. Please verify your OTP.',
-                'user_id': user.id
-            }, status=status.HTTP_403_FORBIDDEN)
-    else:
-        return Response({
-            'error': 'Incorrect Username or Password.'
-        }, status=status.HTTP_401_UNAUTHORIZED)
+    username = request.data.get("username")
+    password = request.data.get("password")
+
+    try:
+        user = User.objects.get(username=username)
+    except User.DoesNotExist:
+        return Response(
+            {"error": "Incorrect Username or Password."},
+            status=status.HTTP_401_UNAUTHORIZED,
+        )
+
+    if not user.check_password(password):
+        return Response(
+            {"error": "Incorrect Username or Password."},
+            status=status.HTTP_401_UNAUTHORIZED,
+        )
+
+    if not user.is_active:
+        return Response(
+            {
+                "error": "Account is not verified. Please verify your OTP.",
+                "user_id": user.id,
+            },
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    token, created = Token.objects.get_or_create(user=user)
+
+    return Response(
+        {
+            "message": "Login Successful",
+            "token": token.key,
+            "user_id": user.id,
+        },
+        status=status.HTTP_200_OK,
+    )
 
 
 @api_view(['POST'])
