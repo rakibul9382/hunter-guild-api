@@ -4,6 +4,7 @@ from django.contrib.auth.password_validation import validate_password
 from phonenumber_field.serializerfields import PhoneNumberField
 from django.db import transaction
 from django.core.cache import cache
+from rest_framework.validators import UniqueValidator
 
 class TaskSerializer(serializers.ModelSerializer):
     class Meta:
@@ -36,7 +37,15 @@ class HunterSignupSerializer(serializers.ModelSerializer):
         write_only=True,
         required=True
     )
-
+    email = serializers.EmailField(
+        required=True,
+        validators=[
+        UniqueValidator(
+            queryset=User.objects.all(),
+            message="A user with this email already exists."
+        )
+    ]
+    )
     class Meta:
         model = User
         fields = [

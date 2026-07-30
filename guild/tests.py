@@ -1,10 +1,11 @@
 from rest_framework.test import APITestCase
 from rest_framework import status
 from django.contrib.auth import get_user_model  # This handles custom user models!
-from .models import HunterProfile
+from .models import HunterProfile, OTPRecord
 from django.core.cache import cache
 from unittest.mock import patch
 from django.urls import reverse
+from rest_framework.authtoken.models import Token
 
 User = get_user_model()
 
@@ -118,7 +119,7 @@ class EditProfileTestCase(APITestCase):
             location="Chittagong",
             availability_status="AV"
         )
-        self.url =reverse('profile-edit')
+        self.url = reverse('profile-edit')
 
     def test_edit_profile_success(self):
         self.client.force_authenticate(user=self.user)
@@ -293,3 +294,340 @@ class EditProfileTestCase(APITestCase):
             response.status_code,
             status.HTTP_401_UNAUTHORIZED
         )
+
+
+class AuthenticateLoginTestCase(APITestCase):
+
+    def test_login_success(self):
+        user = User.objects.create_user(username='rakibul', password='721648', is_active=True)
+        token, created = Token.objects.get_or_create(user=user)
+        response = self.client.post(
+            reverse('login'),
+            {
+                "username": "rakibul",
+                "password": "721648"
+            },
+            format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # 'message': 'Login Successful',
+        # 'token': token.key,
+        # 'user_id': user.id
+        self.assertEqual(
+            set(response.data.keys()),
+            {'message', 'token', 'user_id'}
+        )
+        self.assertEqual(response.data['message'], 'Login Successful')
+        self.assertEqual(response.data['token'], token.key)
+        self.assertEqual(response.data['user_id'], user.id)
+
+    def test_login_unauthorized(self):
+
+        User.objects.create_user(username='rakibul', password='721648', is_active=True)
+        response = self.client.post(
+            reverse('login'),
+            {
+                "username": "rakibulbuli",
+                "password": "721648"
+            },
+            format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(
+            response.data['error'],
+            'Incorrect Username or Password.'
+        )
+
+    def test_login_not_active(self):
+        user = User.objects.create_user(
+            username='rakibul',
+            password='721648',
+            is_active=False
+        )
+
+        response = self.client.post(
+            reverse('login'),
+            {
+                "username": "rakibul",
+                "password": "721648"
+            },
+            format='json'
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(
+            response.data['error'],
+            'Account is not verified. Please verify your OTP.'
+        )
+        self.assertEqual(response.data['user_id'], user.id)
+
+
+class AutheticateSignUpTestCase(APITestCase):
+
+    @patch("guild.api_views.send_mail")
+    def test_signup_success(self, mock_send_mail):
+        response = self.client.post(
+            reverse('signup'),
+            {
+                "username": "rakibul",
+                "password": "StrongPass123!",
+                "confirm_password": "StrongPass123!",
+                "email": "johny@gmail.com"
+
+            }
+        )
+        print(response.status_code)
+        print(response.data)
+        user = User.objects.get(username='rakibul')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['message'], 'Signup successful. Please verify OTP.')
+        self.assertEqual(response.data['user_id'], user.id)
+        self.assertTrue(HunterProfile.objects.filter(user=user).exists())
+        self.assertTrue(OTPRecord.objects.filter(user=user).exists())
+        self.assertFalse(user.is_active)
+        mock_send_mail.assert_called_once()
+
+    def test_signup_password_mismatch(self):
+        response = self.client.post(
+            reverse("signup"),
+            {
+                "username": "rakibul",
+                "email": "john@gmail.com",
+                "password": "raki12345678",
+                "confirm_password": "87654321baku"
+            },
+            format="json"
+        )
+        print(response.data)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("confirm_password", response.data)
+        self.assertIn(
+            "Password dont match.",
+            response.data["confirm_password"]
+        )
+
+    def test_signup_password_week(self):
+        response = self.client.post(
+                    reverse("signup"),
+                    {
+                        "username": "rakibul",
+                        "email": "john@gmail.com",
+                        "password": "123456",
+                        "confirm_password": "123456"
+                    },
+                    format="json"
+                )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("password", response.data)
+        self.assertIn(
+            "This password is too short. It must contain at least 8 characters.",
+            response.data["password"]
+        )
+
+        self.assertIn(
+            "This password is too common.",
+            response.data["password"]
+        )
+
+        self.assertIn(
+            "This password is entirely numeric.",
+            response.data["password"]
+        )
+
+    def test_signup_without_email(self):
+        response = self.client.post(
+            reverse("signup"),
+            {
+                "username": "rakibul",
+                "password": "12345678rakibul!",
+                "confirm_password": "12345678rakibul!"
+            },
+            format="json"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("email", response.data)
+
+    def test_signup_without_username(self):
+        response = self.client.post(
+            reverse("signup"),
+            {
+                "email": "john@gmail.com",
+                "password": "StrongPass123!",
+                "confirm_password": "StrongPass123!"
+            },
+            format="json"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("username", response.data)
+
+    def test_signup_duplicate_username(self):
+        User.objects.create_user(
+            username="rakibul",
+            email="old@gmail.com",
+            password="StrongPass123!"
+        )
+
+        response = self.client.post(
+            reverse("signup"),
+            {
+                "username": "rakibul",
+                "email": "new@gmail.com",
+                "password": "StrongPass123!",
+                "confirm_password": "StrongPass123!"
+            },
+            format="json"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("username", response.data)
+
+    def test_signup_invalid_email(self):
+        response = self.client.post(
+            reverse("signup"),
+            {
+                "username": "rakibul",
+                "email": "invalid-email",
+                "password": "StrongPass123!",
+                "confirm_password": "StrongPass123!"
+            },
+            format="json"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("email", response.data)
+
+    def test_signup_without_password(self):
+        response = self.client.post(
+            reverse("signup"),
+            {
+                "username": "rakibul",
+                "email": "john@gmail.com",
+                "confirm_password": "StrongPass123!"
+            },
+            format="json"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("password", response.data)
+        self.assertEqual(
+            response.data["password"][0],
+            "This field is required."
+        )
+
+    def test_signup_without_confirm_password(self):
+        response = self.client.post(
+            reverse("signup"),
+            {
+                "username": "rakibul",
+                "email": "john@gmail.com",
+                "password": "StrongPass123!"
+            },
+            format="json"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("confirm_password", response.data)
+        self.assertEqual(
+            response.data["confirm_password"][0],
+            "This field is required."
+        )
+
+    def test_signup_duplicate_username(self):
+        User.objects.create_user(
+            username="rakibul",
+            email="old@gmail.com",
+            password="StrongPass123!"
+        )
+
+        response = self.client.post(
+            reverse("signup"),
+            {
+                "username": "rakibul",
+                "email": "new@gmail.com",
+                "password": "StrongPass123!",
+                "confirm_password": "StrongPass123!"
+            },
+            format="json"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("username", response.data)
+        self.assertEqual(
+            response.data["username"][0],
+            "A user with that username already exists."
+        )
+
+    def test_signup_duplicate_email(self):
+        User.objects.create_user(
+            username="existing_user",
+            email="john@gmail.com",
+            password="StrongPass123!"
+        )
+
+        response = self.client.post(
+            reverse("signup"),
+            {
+                "username": "new_user",
+                "email": "john@gmail.com",
+                "password": "StrongPass123!",
+                "confirm_password": "StrongPass123!"
+            },
+            format="json"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("email", response.data)
+        self.assertEqual(
+            response.data["email"][0],
+            "A user with this email already exists."
+        )
+
+    def test_signup_invalid_email(self):
+        response = self.client.post(
+            reverse("signup"),
+            {
+                "username": "rakibul",
+                "email": "invalid-email",
+                "password": "StrongPass123!",
+                "confirm_password": "StrongPass123!"
+            },
+            format="json"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("email", response.data)
+        self.assertEqual(
+            response.data["email"][0],
+            "Enter a valid email address."
+        )
+
+    @patch("guild.api_views.send_mail")
+    def test_signup_email_sending_failure(self, mock_send_mail):
+        mock_send_mail.side_effect = Exception("SMTP server error")
+
+        response = self.client.post(
+            reverse("signup"),
+            {
+                "username": "rakibul",
+                "email": "john@gmail.com",
+                "password": "StrongPass123!",
+                "confirm_password": "StrongPass123!"
+            },
+            format="json"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["message"], "Account created.")
+        self.assertEqual(
+            response.data["warning"],
+            "Verification email could not be sent. Please click Resend OTP."
+        )
+        self.assertIn("user_id", response.data)
+
+        # Ensure the user was created
+        self.assertTrue(User.objects.filter(username="rakibul").exists())
+
+        # Ensure send_mail() was attempted
+        mock_send_mail.assert_called_once()
