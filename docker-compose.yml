@@ -11,6 +11,10 @@ services:
     ports:
       - "5433:5432"
 
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
   # 2. The Django Web Container
   web:
     build: .
@@ -31,6 +35,16 @@ services:
     depends_on:
       - db
 
+  celery:
+    build: .
+    command: celery -A config worker -l INFO
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    depends_on:
+      - db
+      - redis
 # 3. The Permanent Storage
 volumes:
   postgres_data:

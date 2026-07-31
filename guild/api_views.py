@@ -12,6 +12,8 @@ from django.db import IntegrityError, DatabaseError
 import logging
 from django.db import transaction
 from drf_spectacular.utils import extend_schema
+from .tasks import simulate_heavy_email_task
+from celery.result import AsyncResult
 from .serializers import (
     TaskSerializer,
     TaskAssignmentSerializer,
@@ -601,3 +603,33 @@ def admin_pending_queue(request):
         'meta': paginated_data['meta'],
         'pending_reviews': paginated_data['results']
     }, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+def trigger_email_task(request):
+    # We grab an email from the incoming request (or default to a test email)
+    user_email = request.data.get('email', 'test_hunter@guild.com')
+    
+    # 1. Trigger the background task using .delay()
+    task = simulate_heavy_email_task.delay(user_email)
+    
+    # 2. Instantly return a 202 Accepted response to the user
+    return Response(
+        {
+            "message": "Email task successfully added to the background queue!",
+            "task_id": task.id
+        }, 
+        status=status.HTTP_202_ACCEPTED
+    )
+
+
+@api_view(['GET'])
+def get_task_status(request, task_id):
+    # Retrieve the task from Redis
+    task_result = AsyncResult(task_id)
+    
+    return Response({
+        "task_id": task_id,
+        "status": task_result.state,      # e.g., 'PENDING', 'SUCCESS'
+        "result": task_result.result if task_result.ready() else None
+    })

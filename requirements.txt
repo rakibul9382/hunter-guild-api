@@ -9,3 +9,5 @@ sqlparse==0.5.5
 psycopg2-binary>=2.9.9
 drf-spectacular
 coverage
+celery==5.4.0
+redis==5.0.3
