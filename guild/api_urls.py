@@ -20,4 +20,7 @@ urlpatterns = [
     path('profile/request-edit/', api_views.request_profile_edit_otp, name='request-edit-otp'),
     path('profile/profile-edit/', api_views.edit_profile_api, name='profile-edit'),
     path('admin/pending_review/', api_views.admin_pending_queue, name='admin_pending_queue'),
+    path('test-email-task/', api_views.trigger_email_task, name='test_email_task'),
+    path('task-status/<str:task_id>/', api_views.get_task_status, name='get_task_status'),
+
 ]
