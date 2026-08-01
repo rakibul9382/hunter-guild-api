@@ -138,6 +138,7 @@ PHONENUMBER_DEFAULT_REGION = 'IN'
 LOGIN_REDIRECT_URL = 'dashboard'  # or whatever your dashboard URL name is
 """ LOGOUT_REDIRECT_URL = 'login' """
 load_dotenv()
+# --- EMAIL CONFIGURATION ---
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
