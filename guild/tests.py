@@ -364,7 +364,7 @@ class AuthenticateLoginTestCase(APITestCase):
 
 class AutheticateSignUpTestCase(APITestCase):
 
-    @patch("guild.api_views.send_mail")
+    @patch("guild.api_views.send_otp_email_task")
     def test_signup_success(self, mock_send_mail):
         response = self.client.post(
             reverse('signup'),
@@ -385,7 +385,7 @@ class AutheticateSignUpTestCase(APITestCase):
         self.assertTrue(HunterProfile.objects.filter(user=user).exists())
         self.assertTrue(OTPRecord.objects.filter(user=user).exists())
         self.assertFalse(user.is_active)
-        mock_send_mail.assert_called_once()
+        mock_send_mail.delay.assert_called_once()
 
     def test_signup_password_mismatch(self):
         response = self.client.post(
@@ -603,9 +603,9 @@ class AutheticateSignUpTestCase(APITestCase):
             "Enter a valid email address."
         )
 
-    @patch("guild.api_views.send_mail")
+    @patch("guild.api_views.send_otp_email_task")
     def test_signup_email_sending_failure(self, mock_send_mail):
-        mock_send_mail.side_effect = Exception("SMTP server error")
+        mock_send_mail.delay.side_effect = Exception("SMTP server error")
 
         response = self.client.post(
             reverse("signup"),
@@ -617,7 +617,7 @@ class AutheticateSignUpTestCase(APITestCase):
             },
             format="json"
         )
-
+        print(response.data)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data["message"], "Account created.")
         self.assertEqual(
@@ -630,4 +630,4 @@ class AutheticateSignUpTestCase(APITestCase):
         self.assertTrue(User.objects.filter(username="rakibul").exists())
 
         # Ensure send_mail() was attempted
-        mock_send_mail.assert_called_once()
+        mock_send_mail.delay.assert_called_once()
