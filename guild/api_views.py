@@ -12,7 +12,7 @@ from django.db import IntegrityError, DatabaseError
 import logging
 from django.db import transaction
 from drf_spectacular.utils import extend_schema
-from .tasks import simulate_heavy_email_task
+from .tasks import simulate_heavy_email_task, send_otp_email_task, send_welcome_email_task
 from celery.result import AsyncResult
 from .serializers import (
     TaskSerializer,
@@ -112,13 +112,7 @@ def api_signup(request):
         otp = str(random.randint(100000, 999999))
         OTPRecord.objects.create(user=user, otp_code=otp)
         try:
-            send_mail(
-                subject='Verify your guild account',
-                message=f'Your OTP is: {otp}',
-                from_email='skrakibulislam9623@gmail.com',
-                recipient_list=[user.email],
-                fail_silently=False
-            )
+            send_otp_email_task.delay(user.email, otp)
         except Exception:
             return Response(
                 {
@@ -154,6 +148,7 @@ def otp_view(request):
             user.is_active = True
             user.save()
             otp_record.delete()
+            send_welcome_email_task.delay(user.email, user.username)
             return Response({'message': 'Account verified successfully! You can now log in.'}, status=status.HTTP_200_OK)
         else:
             otp_record.delete()
@@ -194,13 +189,7 @@ def api_resend_otp(request):
 
     # 4. Try sending the new email
     try:
-        send_mail(
-            'Resend: Verify your guild account',
-            f'Your new OTP is: {new_otp}',
-            'skrakibulislam9623@gmail.com',
-            [user.email],
-            fail_silently=False
-        )
+        send_otp_email_task.delay(user.email, new_otp)
         return Response({'message': 'A new OTP has been sent to your email.'}, status=status.HTTP_200_OK)
 
     except Exception:

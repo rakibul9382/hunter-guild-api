@@ -349,7 +349,7 @@ class OTPRecord(models.Model):
 
     def is_valid(self):
         # For testing: OTP expires immediately
-        expire_time = self.created_at + timedelta(seconds=55)
+        expire_time = self.created_at + timedelta(minutes=5)
         return timezone.now() < expire_time
 
 
