@@ -5,7 +5,6 @@ from .models import HunterProfile, OTPRecord
 from django.core.cache import cache
 from unittest.mock import patch
 from django.urls import reverse
-from rest_framework.authtoken.models import Token
 
 User = get_user_model()
 
@@ -299,54 +298,50 @@ class EditProfileTestCase(APITestCase):
 class AuthenticateLoginTestCase(APITestCase):
 
     def test_login_success(self):
+        # 1. Create an active user (No need to manually create a Token here anymore!)
         user = User.objects.create_user(username='rakibul', password='721648', is_active=True)
-        token, created = Token.objects.get_or_create(user=user)
+
+        # 2. Send request to the JWT login endpoint
         response = self.client.post(
-            reverse('login'),
+            reverse('token_obtain_pair'),  # Use the name We defined in urls.py
             {
                 "username": "rakibul",
                 "password": "721648"
             },
             format='json'
         )
+        # 3. Verify the response
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        # 'message': 'Login Successful',
-        # 'token': token.key,
-        # 'user_id': user.id
-        self.assertEqual(
-            set(response.data.keys()),
-            {'message', 'token', 'user_id'}
-        )
-        self.assertEqual(response.data['message'], 'Login Successful')
-        self.assertEqual(response.data['token'], token.key)
-        self.assertEqual(response.data['user_id'], user.id)
+
+        # 4. JWT should return exactly two keys: 'access' and 'refresh'
+        self.assertIn('access', response.data)
+        self.assertIn('refresh', response.data)
 
     def test_login_unauthorized(self):
-
         User.objects.create_user(username='rakibul', password='721648', is_active=True)
         response = self.client.post(
-            reverse('login'),
+            reverse('token_obtain_pair'), # Updated URL name
             {
-                "username": "rakibulbuli",
+                "username": "rakibulbuli", # Wrong username
                 "password": "721648"
             },
             format='json'
         )
+        
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
-        self.assertEqual(
-            response.data['error'],
-            'Incorrect Username or Password.'
-        )
+        # JWT uses 'detail' instead of 'error'
+        self.assertIn('detail', response.data)
+        self.assertEqual(str(response.data['detail']), 'No active account found with the given credentials')
 
     def test_login_not_active(self):
         user = User.objects.create_user(
             username='rakibul',
             password='721648',
-            is_active=False
+            is_active=False # Inactive user
         )
 
         response = self.client.post(
-            reverse('login'),
+            reverse('token_obtain_pair'), # Updated URL name
             {
                 "username": "rakibul",
                 "password": "721648"
@@ -354,13 +349,10 @@ class AuthenticateLoginTestCase(APITestCase):
             format='json'
         )
 
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-        self.assertEqual(
-            response.data['error'],
-            'Account is not verified. Please verify your OTP.'
-        )
-        self.assertEqual(response.data['user_id'], user.id)
-
+        # JWT returns 401 for inactive users, not 403
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertIn('detail', response.data)
+        self.assertEqual(str(response.data['detail']), 'No active account found with the given credentials')
 
 class AutheticateSignUpTestCase(APITestCase):
 

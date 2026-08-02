@@ -6,7 +6,6 @@ from django.db.models import Case, When, IntegerField
 from django.core.mail import send_mail
 import random
 from django.contrib.auth import authenticate
-from rest_framework.authtoken.models import Token
 from django.utils import timezone
 from django.db import IntegrityError, DatabaseError
 import logging
