@@ -1,12 +1,14 @@
 from django.urls import path
 from . import api_views
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 urlpatterns = [
     # When a client hits this, it kicks off the data flow
     path('tasks/', api_views.task_list, name='api-task-list'),
     path('signup/', api_views.api_signup, name='signup'),
     path('verify-otp/', api_views.otp_view, name='api-verify-otp'),
+    path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('resend-otp/', api_views.api_resend_otp, name='api-resend-otp'),
-    path('login/', api_views.login_view, name='login'),
+    path('login/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('admin-signup/', api_views.api_admin_signup, name='api-admin-signup'),
     path('dashboard/', api_views.api_dashboard, name='dashboard'),
     path('create-task/', api_views.api_create_task, name='task-creation'),

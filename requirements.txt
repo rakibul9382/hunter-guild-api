@@ -11,3 +11,5 @@ drf-spectacular
 coverage
 celery==5.4.0
 redis==5.0.3
+djangorestframework-simplejwt
+gunicorn==21.2.0
