@@ -94,6 +94,9 @@ DATABASES = {
         'PASSWORD': os.environ.get('POSTGRES_PASSWORD'),
         'HOST': os.environ.get('POSTGRES_HOST'), # 'db' is the name of the container in docker-compose!
         'PORT': os.environ.get('POSTGRES_PORT'),
+        'OPTIONS': {
+            'sslmode': 'require',
+        },
     }
 }
 
