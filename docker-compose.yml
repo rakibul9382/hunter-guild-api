@@ -2,14 +2,14 @@ version: '3.8'
 
 services:
   # 1. The Database Container
-  db:
-    image: postgres:15-alpine
-    env_file:
-      - .env
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5433:5432"
+  # db:
+  #   image: postgres:15-alpine
+  #   env_file:
+  #     - .env
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   ports:
+  #     - "5433:5432"
 
   redis:
     image: redis:7-alpine
@@ -36,8 +36,8 @@ services:
     env_file:
       # <-- Tell Docker to read the .env file
       - .env
-    depends_on:
-      - db
+    # depends_on:
+    #   - db
   nginx:
     image: nginx:1.25-alpine
     ports:
@@ -57,7 +57,7 @@ services:
     env_file:
       - .env
     depends_on:
-      - db
+      # - db
       - redis
 # 3. The Permanent Storage
 volumes:

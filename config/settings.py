@@ -96,6 +96,10 @@ DATABASES = {
         'PORT': os.environ.get('POSTGRES_PORT'),
     }
 }
+if os.environ.get("POSTGRES_HOST", "").endswith("rds.amazonaws.com"):
+    DATABASES["default"]["OPTIONS"] = {
+        "sslmode": "require",
+    }
 
 
 # Password validation
