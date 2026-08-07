@@ -1,10 +1,13 @@
 from rest_framework import serializers
-from .models import Task, TaskAssignment, HunterProfile, User, OTPRecord, Notification
+from .models import Task, TaskAssignment, HunterProfile, User, OTPRecord, Notification, SecurityLog
 from django.contrib.auth.password_validation import validate_password
 from phonenumber_field.serializerfields import PhoneNumberField
 from django.db import transaction
 from django.core.cache import cache
 from rest_framework.validators import UniqueValidator
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from .utils import get_client_info
+from rest_framework.exceptions import AuthenticationFailed
 
 class TaskSerializer(serializers.ModelSerializer):
     class Meta:
@@ -226,3 +229,30 @@ class EditProfileSerializer(serializers.ModelSerializer):
         instance.save()
 
         return instance
+
+
+class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    def validate(self, attrs):
+        client_info = get_client_info(self.context["request"])
+        ip = client_info["ip_address"]
+        ua = client_info["user_agent"]
+
+        try:
+            data = super().validate(attrs)
+            SecurityLog.objects.create(
+                    user=self.user,
+                    username_attempted=self.user.username,
+                    action='LOGIN_SUCCESS',
+                    ip_address=ip,
+                    user_agent=ua
+                )
+            return data
+        except AuthenticationFailed:
+            SecurityLog.objects.create(
+                    user=None,
+                    username_attempted=attrs.get('username', 'Unknown Input'),
+                    action='LOGIN_FAILED',
+                    ip_address=ip,
+                    user_agent=ua
+                )
+            raise

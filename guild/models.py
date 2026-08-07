@@ -361,3 +361,30 @@ class Notification(models.Model):
 
     def __str__(self):
         return f"Notification for {self.recipient.username}: {self.message[:20]}"
+
+
+class SecurityLog(models.Model):
+    ACTION_CHOICES=[
+        ('LOGIN_SUCESS', 'successful login'),
+        ('LOGIN_FAILED', 'failed login attempt'),
+        ('LOGIN_SUCESS', 'user logout'),
+    ]
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='security_logs'
+    )
+    username_attempted = models.CharField(max_length=150, null=True, blank=True)
+    action = models.CharField(choices=ACTION_CHOICES, max_length=20)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.TextField(null=True, blank=True)
+    time_stamp = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-time_stamp']
+        verbose_name = 'security log'
+        verbose_name_plural = "Security Logs"
+    def __str__(self):
+        return f"{self.action} - {self.username_attempted or self.user} ({self.timestamp.strftime('%Y-%m-%d %H:%M:%S')})"
