@@ -236,7 +236,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         client_info = get_client_info(self.context["request"])
         ip = client_info["ip_address"]
         ua = client_info["user_agent"]
-
+        print("validate_called")
         try:
             data = super().validate(attrs)
             SecurityLog.objects.create(
