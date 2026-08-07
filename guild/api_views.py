@@ -25,7 +25,8 @@ from .serializers import (
     ProfileSerializer,
     NotificationSerializer,
     ContractHistorySerializer,
-    EditProfileSerializer
+    EditProfileSerializer,
+    CustomTokenObtainPairSerializer,
 )
 from .pagination import StandardResultsSetPagination
 from .models import Task, TaskAssignment, HunterProfile, OTPRecord, User,Notification
@@ -195,46 +196,55 @@ def api_resend_otp(request):
         return Response({'error': 'Failed to resend the email. Please try again later.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@api_view(["POST"])
+# @api_view(["POST"])
+# @permission_classes([AllowAny])
+# def login_view(request):
+#     username = request.data.get("username")
+#     password = request.data.get("password")
+
+#     try:
+#         user = User.objects.get(username=username)
+#     except User.DoesNotExist:
+#         return Response(
+#             {"error": "Incorrect Username or Password."},
+#             status=status.HTTP_401_UNAUTHORIZED,
+#         )
+
+#     if not user.check_password(password):
+#         return Response(
+#             {"error": "Incorrect Username or Password."},
+#             status=status.HTTP_401_UNAUTHORIZED,
+#         )
+
+#     if not user.is_active:
+#         return Response(
+#             {
+#                 "error": "Account is not verified. Please verify your OTP.",
+#                 "user_id": user.id,
+#             },
+#             status=status.HTTP_403_FORBIDDEN,
+#         )
+
+#     token, created = Token.objects.get_or_create(user=user)
+
+#     return Response(
+#         {
+#             "message": "Login Successful",
+#             "token": token.key,
+#             "user_id": user.id,
+#         },
+#         status=status.HTTP_200_OK,
+#     )
+@api_view(['POST'])
 @permission_classes([AllowAny])
 def login_view(request):
-    username = request.data.get("username")
-    password = request.data.get("password")
-
-    try:
-        user = User.objects.get(username=username)
-    except User.DoesNotExist:
-        return Response(
-            {"error": "Incorrect Username or Password."},
-            status=status.HTTP_401_UNAUTHORIZED,
-        )
-
-    if not user.check_password(password):
-        return Response(
-            {"error": "Incorrect Username or Password."},
-            status=status.HTTP_401_UNAUTHORIZED,
-        )
-
-    if not user.is_active:
-        return Response(
-            {
-                "error": "Account is not verified. Please verify your OTP.",
-                "user_id": user.id,
-            },
-            status=status.HTTP_403_FORBIDDEN,
-        )
-
-    token, created = Token.objects.get_or_create(user=user)
-
-    return Response(
-        {
-            "message": "Login Successful",
-            "token": token.key,
-            "user_id": user.id,
-        },
-        status=status.HTTP_200_OK,
-    )
-
+    print(request.data)
+    print("REMOTE_ADDR:", request.META.get("REMOTE_ADDR"))
+    print("X_FORWARDED_FOR:", request.META.get("HTTP_X_FORWARDED_FOR"))
+    print("X_REAL_IP:", request.META.get("HTTP_X_REAL_IP"))
+    serializer = CustomTokenObtainPairSerializer(data=request.data, context={'request': request})
+    serializer.is_valid(raise_exception=True)
+    return Response(serializer.validated_data, status=status.HTTP_200_OK)
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated, IsAdminUser])
