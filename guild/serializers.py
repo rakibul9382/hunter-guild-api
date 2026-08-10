@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Task, TaskAssignment, HunterProfile, User, OTPRecord, Notification, SecurityLog
+from .models import Task, TaskAssignment, HunterProfile, User, OTPRecord, Notification, SecurityLog,HunterEarning, Withdrawl
 from django.contrib.auth.password_validation import validate_password
 from phonenumber_field.serializerfields import PhoneNumberField
 from django.db import transaction
@@ -215,7 +215,7 @@ class EditProfileSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         user_data = validated_data.pop('user', {})
         user = instance.user
-
+        old_image = user.profile_image
         if 'phone_number' in user_data:
             user.phone_number = user_data['phone_number']
         if 'profile_image' in user_data:
@@ -223,6 +223,8 @@ class EditProfileSerializer(serializers.ModelSerializer):
         if 'email' in user_data:
             user.email = user_data['email']
         user.save()
+        if 'profile_image' in user_data and old_image and old_image != user.profile_image:
+            old_image.delete(save=False)  # Delete the old image file from storage
 
         instance.location = validated_data.get('location', instance.location)
         instance.availability_status = validated_data.get('availability_status', instance.availability_status)
@@ -256,3 +258,41 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
                     user_agent=ua
                 )
             raise
+
+
+class HunterEarningSerializer(serializers.ModelSerializer):
+    task_title = serializers.CharField(source='task_assignment.task.title', read_only=True)
+
+    class Meta:
+        model = HunterEarning
+        fields = [
+            'id',
+            'task_title',
+            'amount',
+            'created_at'
+        ]
+
+
+class WithdrawlSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Withdrawl
+        fields = [
+            'id',
+            'amount',
+            'status',
+            'created_at',
+            'processed_at',
+            'admin_note',
+        ]
+        read_only_fields = [
+            'id',
+            'status',
+            'created_at',
+            'processed_at',
+            'admin_note',
+        ]
+
+    def validate_amount(self, value):
+        if value <= 0:
+            raise serializers.ValidationError("Withdrawal amount must be greater than zero.")
+        return value

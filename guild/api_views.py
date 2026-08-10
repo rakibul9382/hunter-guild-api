@@ -1,17 +1,19 @@
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, parser_classes
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
 from django.db.models import Case, When, IntegerField
 from django.core.mail import send_mail
 import random
+from django.db.models import Sum
 from django.contrib.auth import authenticate
 from django.utils import timezone
 from django.db import IntegrityError, DatabaseError
+from decimal import Decimal, InvalidOperation
 import logging
 from django.db import transaction
 from drf_spectacular.utils import extend_schema
-from .tasks import simulate_heavy_email_task, send_otp_email_task, send_welcome_email_task
+from .tasks import process_withdrawal_request_task, simulate_heavy_email_task, send_otp_email_task, send_welcome_email_task
 from celery.result import AsyncResult
 from .serializers import (
     TaskSerializer,
@@ -27,12 +29,16 @@ from .serializers import (
     ContractHistorySerializer,
     EditProfileSerializer,
     CustomTokenObtainPairSerializer,
+    HunterEarningSerializer,
+    WithdrawlSerializer,
 )
 from .pagination import StandardResultsSetPagination
-from .models import Task, TaskAssignment, HunterProfile, OTPRecord, User,Notification
+from .models import Task, TaskAssignment, HunterProfile, OTPRecord, User,Notification,HunterEarning,Withdrawl
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.cache import cache
 logger = logging.getLogger(__name__)
+from .utils import get_available_balance
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 
 
 @api_view(['GET'])
@@ -236,6 +242,7 @@ def api_resend_otp(request):
 #         status=status.HTTP_200_OK,
 #     )
 @api_view(['POST'])
+@parser_classes([JSONParser, FormParser])
 @permission_classes([AllowAny])
 def login_view(request):
     print(request.data)
@@ -411,6 +418,21 @@ def api_review_task(request, assignment_id):
                 hunter_profile = assignment.hunter
 
                 if decisions == 'P':
+                    if hasattr(assignment, 'earning'):
+                        return Response(
+                            {
+                                'errot': 'Earning already exist for this Assignment.'
+                            },
+                            status=status.HTTP_400_BAD_REQUEST 
+                        )
+
+                    #Create Earing for this Task
+                    HunterEarning.objects.create(
+                        hunter = hunter_profile,
+                        task_assignment = assignment,
+                        amount = assignment.task.amount
+                    )
+
                     hunter_profile.total_completed_contract += 1
                     task_level = assignment.task.required_level
                     xp_earned = 20 * task_level
@@ -531,15 +553,15 @@ def api_contract_history(request):
 
     pagination = StandardResultsSetPagination()
     paginated_contract_history = pagination.paginate_queryset(contract_history, request)
-    
+
     contract_history_serializer = ContractHistorySerializer(
         paginated_contract_history, 
         many=True, 
         context={'request': request}
     )
-    
+
     paginated_data = pagination.get_paginated_response(contract_history_serializer.data)
-    
+
     return Response({
         'meta': paginated_data['meta'],
         'contract_history': paginated_data['results']
@@ -561,7 +583,7 @@ def edit_profile_api(request):
             'message': 'Profile updated successfully!',
             'updated_data': serializer.data
         }, status=status.HTTP_200_OK)
-        
+
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['POST'])
@@ -607,10 +629,10 @@ def admin_pending_queue(request):
 def trigger_email_task(request):
     # We grab an email from the incoming request (or default to a test email)
     user_email = request.data.get('email', 'test_hunter@guild.com')
-    
+
     # 1. Trigger the background task using .delay()
     task = simulate_heavy_email_task.delay(user_email)
-    
+
     # 2. Instantly return a 202 Accepted response to the user
     return Response(
         {
@@ -625,9 +647,82 @@ def trigger_email_task(request):
 def get_task_status(request, task_id):
     # Retrieve the task from Redis
     task_result = AsyncResult(task_id)
-    
+
     return Response({
         "task_id": task_id,
         "status": task_result.state,      # e.g., 'PENDING', 'SUCCESS'
         "result": task_result.result if task_result.ready() else None
     })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def api_hunter_earning(request):
+    hunter_profile = request.user.hunter_profile
+    earning = HunterEarning.objects.filter(hunter=hunter_profile).select_related('task_assignment__task').order_by('-created_at')
+    serializer = HunterEarningSerializer(earning, many=True)
+    total_earned = earning.aggregate(total=Sum('amount'))['total'] or 0
+    return Response(
+        {
+            'total_earned': total_earned,
+            'earnings': serializer.data
+        }
+    )
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def api_request_withdrawl(request):
+    hunter_profile = request.user.hunter_profile
+    serializer = WithdrawlSerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    amount = serializer.validated_data['amount']
+    available_balance = get_available_balance(hunter_profile)
+    if amount > available_balance:
+        return Response(
+            {
+                'error': 'Requested amount exceeds available balance.',
+                'available_balance': available_balance
+            },
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    withdrawl = serializer.save(hunter=hunter_profile)
+    return Response(
+        {
+            'message': 'Withdrawal request submitted successfully.',
+            'withdrawl_id': withdrawl.id,
+            'requested_amount': withdrawl.amount,
+            'available_balance_after_request': available_balance - withdrawl.amount
+        },
+        status=status.HTTP_201_CREATED
+    )
+
+
+@api_view(['PATCH'])
+@permission_classes([IsAdminUser])
+def api_process_withdrawl(request, withdrawl_id):
+    try:
+        withdrawl = Withdrawl.objects.get(id=withdrawl_id)
+    except Withdrawl.DoesNotExist:
+        return Response({'error': 'Withdrawal request not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+    if withdrawl.status != 'PENDING':
+        return Response({'error': 'This withdrawal request has already been processed.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    new_status = request.data.get('status')
+    admin_note = request.data.get('admin_note', '')
+
+    if new_status not in ['APPROVED', 'REJECTED']:
+        return Response({'error': "Status must be 'APPROVED' or 'REJECTED'."}, status=status.HTTP_400_BAD_REQUEST)
+
+    with transaction.atomic():
+        withdrawl.status = new_status
+        withdrawl.admin_note = admin_note
+        withdrawl.save(update_fields=['status', 'admin_note'])
+        if new_status == 'APPROVED':
+            transaction.on_commit(lambda: process_withdrawal_request_task.delay(withdrawl.id))
+        return Response({'message': ('Withdrawal request approved and processing initiated.' if new_status == 'APPROVED' else 'Withdrawal request rejected.'),
+                         'status': withdrawl.status}, status=status.HTTP_200_OK)
+
+

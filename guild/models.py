@@ -63,6 +63,7 @@ class HunterProfile(models.Model):
     location = models.CharField(max_length=150, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    razorpay_fund_account_id = models.CharField(max_length=100, blank=True, null=True)
 
     @property
     def success_rate(self):
@@ -388,3 +389,41 @@ class SecurityLog(models.Model):
         verbose_name_plural = "Security Logs"
     def __str__(self):
         return f"{self.action} - {self.username_attempted or self.user} ({self.timestamp.strftime('%Y-%m-%d %H:%M:%S')})"
+
+
+class HunterEarning(models.Model):
+    hunter = models.ForeignKey(
+        HunterProfile,
+        on_delete=models.CASCADE,
+        related_name="earnings"
+    )
+    task_assignment = models.OneToOneField(
+        TaskAssignment,
+        on_delete=models.CASCADE,
+        related_name="earning"
+    )
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+class Withdrawl(models.Model):
+    STATUS_CHOICES = (
+        ("PENDING", "Pending"),
+        ("APPROVED", "Approved"),
+        ("REJECTED", "Rejected"),
+        ("COMPLETED", "Completed"),
+        ("FAILED", "Failed"),
+    )
+
+    hunter = models.ForeignKey(
+        HunterProfile,
+        on_delete=models.CASCADE,
+        related_name="withdrawls"
+    )
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="PENDING")
+    created_at = models.DateTimeField(auto_now_add=True)
+    processed_at = models.DateTimeField(null=True, blank=True)
+    admin_notes = models.TextField(blank=True, null=True)
+    razorpay_idempotency_key = models.CharField(max_length=100, blank=True, null=True, unique=True)
+    razorpay_payout_id = models.CharField(max_length=100, blank=True, null=True)
