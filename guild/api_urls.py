@@ -1,4 +1,6 @@
 from django.urls import path
+
+from .webhook_view import razorpay_webhook
 from . import api_views
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 urlpatterns = [
@@ -24,5 +26,12 @@ urlpatterns = [
     path('admin/pending_review/', api_views.admin_pending_queue, name='admin_pending_queue'),
     path('test-email-task/', api_views.trigger_email_task, name='test_email_task'),
     path('task-status/<str:task_id>/', api_views.get_task_status, name='get_task_status'),
-
+    path(
+        "razorpay/webhook/",
+        razorpay_webhook,
+        name="razorpay-webhook",
+    ),
+    path('withdrawal/request/', api_views.api_request_withdrawl, name='withdrawal-request'),
+    path('earnings/', api_views.api_hunter_earning, name='api-earnings'),
+    path('withdrawal/process/<int:withdrawal_id>/', api_views.api_process_withdrawl, name='withdrawal-process'),
 ]

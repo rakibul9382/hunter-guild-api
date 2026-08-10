@@ -217,3 +217,8 @@ STORAGES = {
         "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
     },
 }
+
+RAZORPAYX_KEY_ID = os.environ.get('RAZORPAYX_KEY_ID')
+RAZORPAYX_KEY_SECRET = os.environ.get('RAZORPAYX_KEY_SECRET')
+RAZORPAYX_ACCOUNT_NUMBER = os.environ.get('RAZORPAYX_ACCOUNT_NUMBER')
+webhook_secret = os.environ.get('RAZORPAYX_WEBHOOK_SECRET')
