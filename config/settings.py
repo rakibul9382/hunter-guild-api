@@ -26,10 +26,22 @@ SECRET_KEY = os.environ.get('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DEBUG')
-ALLOWED_HOSTS = []
-CSRF_TRUSTED_ORIGINS = [
-    'http://localhost:8080',
-]
+# ALLOWED_HOSTS: Uses .env values if in production, otherwise defaults to local dev
+allowed_hosts_env = os.environ.get('ALLOWED_HOSTS')
+if allowed_hosts_env:
+    ALLOWED_HOSTS = [host.strip() for host in allowed_hosts_env.split(",") if host.strip()]
+else:
+    ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
+
+# CSRF_TRUSTED_ORIGINS: Uses .env values if in production, otherwise defaults to local dev
+csrf_origins_env = os.environ.get('CSRF_TRUSTED_ORIGINS')
+if csrf_origins_env:
+    CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in csrf_origins_env.split(",") if origin.strip()]
+else:
+    CSRF_TRUSTED_ORIGINS = ['http://localhost:8080', 'http://127.0.0.1:8000']
+
+# Allows Django to trust HTTPS requests passed through Nginx in production
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # Application definition
 
